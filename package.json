@@ -1,0 +1,19 @@
+{
+  "name": "create-fullstack-app",
+  "version": "1.0.0",
+  "description": "CLI to set up a new full-stack development environment.",
+  "main": "create-fullstack-app.js",
+  "bin": {
+    "create-fullstack-app": "./create-fullstack-app.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "commander": "^14.0.0"
+  }
+}
