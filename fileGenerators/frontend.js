@@ -26,9 +26,8 @@ const createStyleFiles = (projectConfig) => {
 
   switch (projectConfig.styling) {
     case 'tailwind':
-      const tailwindCss = `@tailwind base;
-@tailwind components;
-@tailwind utilities;`;
+      // Tailwind v4 uses a single import statement.
+      const tailwindCss = `@import "tailwindcss";`;
       // Tailwind's entry CSS can have different names based on framework conventions
       if (projectConfig.jsFramework === 'svelte') {
         cssFilePath = 'src/app.css';
@@ -125,44 +124,28 @@ const appContent = (
 );
 
 ReactDOM.createRoot(rootElement).render(
-  ${projectConfig.styling === 'styled-components' || projectConfig.styling === 'emotion' ? `<ThemeProvider theme={theme}>${appContent}</ThemeProvider>` : appContent}
+  ${
+    (projectConfig.styling === 'styled-components' || projectConfig.styling === 'emotion')
+    ? '<ThemeProvider theme={theme}>{appContent}</ThemeProvider>'
+    : 'appContent'
+  }
 );
 `;
   writeFile(`src/main.${ext}`, mainFile.trim());
 
+  // *** MODIFICATION START ***
   const appFile = `import React from 'react';
-${projectConfig.styling === 'styled-components' ? "import styled from 'styled-components';" : ''}
-${projectConfig.styling === 'emotion' ? "/** @jsxImportSource @emotion/react */\nimport { css } from '@emotion/react';" : ''}
-
-${projectConfig.styling === 'styled-components' ? `
-const AppWrapper = styled.div\`
-  text-align: center;
-  padding: 2rem;
-  background-color: \${props => props.theme.colors.background};
-  color: \${props => props.theme.colors.text};
-
-  h1 {
-    color: \${props => props.theme.colors.primary};
-  }
-\`;
-` : ''}
-${projectConfig.styling === 'emotion' ? `
-const appWrapperStyles = (theme) => css\`
-  text-align: center;
-  padding: 2rem;
-  background-color: \${theme.colors.background};
-  color: \${theme.colors.text};
-
-  h1 {
-    color: \${theme.colors.primary};
-  }
-\`;
-` : ''}
 
 function App() {
+  const projectName = '${projectConfig.name}';
+  const language = '${projectConfig.language}';
+  const styling = '${projectConfig.styling}';
+  const backendExists = ${projectConfig.backend !== 'none'};
+
   const testApi = async () => {
     try {
       const response = await fetch('/api/health');
+      if (!response.ok) throw new Error(\`HTTP error! status: \${response.status}\`);
       const data = await response.json();
       console.log('API Response:', data);
       alert('API connection successful! Check console.');
@@ -172,26 +155,34 @@ function App() {
     }
   };
 
-  const content = (
-    <>
-      <h1>Welcome to ${projectConfig.name}!</h1>
-      <p>Your React + ${projectConfig.language} + ${projectConfig.styling} app is ready!</p>
-      ${projectConfig.backend !== 'none' ? `
-      <button onClick={testApi} style={{ marginTop: '20px', padding: '10px', cursor: 'pointer' }}>
-        Test Backend Connection
-      </button>
-      ` : ''}
-    </>
-  );
+  const useTailwind = styling === 'tailwind';
 
   return (
-    ${projectConfig.styling === 'styled-components' ? `<AppWrapper>${content}</AppWrapper>` :
-      (projectConfig.styling === 'emotion' ? `<div css={appWrapperStyles}>${content}</div>` : `<div>${content}</div>`)}
+    <div className={useTailwind ? 'min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4' : ''}>
+      <div className="text-center">
+        <h1 className={useTailwind ? 'text-5xl font-bold text-cyan-400 mb-4' : ''}>
+          Welcome to {projectName}!
+        </h1>
+        <p className={useTailwind ? 'text-lg text-gray-300' : ''}>
+          Your React + {language} + {styling} app is ready!
+        </p>
+        {backendExists && (
+          <button
+            onClick={testApi}
+            className={useTailwind ? 'mt-8 px-6 py-3 bg-cyan-500 text-black font-semibold rounded-lg shadow-md hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-75 transition-colors duration-300' : ''}
+            style={!useTailwind ? { marginTop: '20px', padding: '10px', cursor: 'pointer' } : {}}
+          >
+            Test Backend Connection
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
 export default App;
 `;
+  // *** MODIFICATION END ***
   writeFile(`src/App.${ext}`, appFile.trim());
 };
 
@@ -210,20 +201,29 @@ createApp(App).mount('#app');
   writeFile(`src/main.${ext}`, mainFile.trim());
 
   const appFile = `<template>
-  <div>
-    <h1>Welcome to {{ projectName }}!</h1>
-    <p>Your Vue + ${projectConfig.language} + ${projectConfig.styling} app is ready!</p>
-    <button v-if="backendExists" @click="testApi" style="margin-top: 20px; padding: 10px; cursor: pointer;">
-      Test Backend Connection
-    </button>
+  <div :class="containerClasses">
+    <div class="text-center">
+      <h1 :class="headerClasses">Welcome to {{ projectName }}!</h1>
+      <p :class="paragraphClasses">Your Vue + ${projectConfig.language} + ${projectConfig.styling} app is ready!</p>
+      <button v-if="backendExists" @click="testApi" :class="buttonClasses" :style="buttonStyles">
+        Test Backend Connection
+      </button>
+    </div>
   </div>
 </template>
 
 <script${projectConfig.language === 'typescript' ? ' lang="ts" setup' : ' setup'}>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 const projectName = ref('${projectConfig.name}');
 const backendExists = ref(${projectConfig.backend !== 'none'});
+const useTailwind = ref(${projectConfig.styling === 'tailwind'});
+
+const containerClasses = computed(() => (useTailwind.value ? 'min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4' : ''));
+const headerClasses = computed(() => (useTailwind.value ? 'text-5xl font-bold text-emerald-400 mb-4' : ''));
+const paragraphClasses = computed(() => (useTailwind.value ? 'text-lg text-gray-300' : ''));
+const buttonClasses = computed(() => (useTailwind.value ? 'mt-8 px-6 py-3 bg-emerald-500 text-black font-semibold rounded-lg shadow-md hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-opacity-75 transition-colors duration-300' : ''));
+const buttonStyles = computed(() => (!useTailwind.value ? { marginTop: '20px', padding: '10px', cursor: 'pointer' } : {}));
 
 const testApi = async () => {
   try {
@@ -239,9 +239,10 @@ const testApi = async () => {
 </script>
 
 <style scoped>
-/* Add component-specific styles here if not using a global framework like Tailwind */
-div {
+/* Add component-specific styles here if not using Tailwind */
+.non-tailwind-styles {
   text-align: center;
+  padding: 2rem;
 }
 </style>
 `;
@@ -256,7 +257,7 @@ const createAngularFiles = (projectConfig) => {
     // Ensure projectConfig.name is the actual desired Angular project name for `ng new`
     // The project root directory should already be created and CWD set to it by projectSetup.js
     const cliProjectName = projectConfig.name.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase(); // Sanitize for ng new
-    
+
     let command = `npx --yes @angular/cli@latest new ${cliProjectName} --directory . --routing --style=${projectConfig.styling === 'sass' ? 'scss' : 'css'} --skip-install --skip-git --defaults`;
     if (projectConfig.styling === 'tailwind') {
         // For Tailwind, Angular CLI doesn't directly support it. We'd typically add it after.
@@ -264,7 +265,7 @@ const createAngularFiles = (projectConfig) => {
         command = `npx --yes @angular/cli@latest new ${cliProjectName} --directory . --routing --style=scss --skip-install --skip-git --defaults`;
         log('ℹ️ Tailwind CSS with Angular requires manual setup or a schematic after CLI generation. Defaulting to SCSS for CLI.', 'yellow');
     }
-    
+
     log(`Executing: ${command}`, 'dim');
     execCommand(command, { stdio: 'inherit' }); // Show output
 
@@ -328,6 +329,7 @@ export default app;
   const appFile = `<script${projectConfig.language === 'typescript' ? ' lang="ts"' : ''}>
   let projectName = '${projectConfig.name}';
   let backendExists = ${projectConfig.backend !== 'none'};
+  let useTailwind = ${projectConfig.styling === 'tailwind'};
 
   async function testApi() {
     try {
@@ -342,32 +344,31 @@ export default app;
   }
 </script>
 
-<main>
-  <h1>Welcome to {projectName}!</h1>
-  <p>Your Svelte + ${projectConfig.language} + ${projectConfig.styling} app is ready!</p>
-  {#if backendExists}
-    <button on:click={testApi} style="margin-top: 20px; padding: 10px; cursor: pointer;">
-      Test Backend Connection
-    </button>
-  {/if}
+<main class:min-h-screen={useTailwind} class:bg-gray-900={useTailwind} class:text-white={useTailwind} class:flex={useTailwind} class:flex-col={useTailwind} class:items-center={useTailwind} class:justify-center={useTailwind}>
+  <div class="text-center">
+    <h1 class="text-5xl font-bold text-orange-500 mb-4">Welcome to {projectName}!</h1>
+    <p class="text-lg text-gray-300">Your Svelte + ${projectConfig.language} + ${projectConfig.styling} app is ready!</p>
+    {#if backendExists}
+      <button on:click={testApi} class="mt-8 px-6 py-3 bg-orange-500 text-black font-semibold rounded-lg shadow-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-opacity-75 transition-colors duration-300">
+        Test Backend Connection
+      </button>
+    {/if}
+  </div>
 </main>
 
 <style>
-  main {
+  /* Non-tailwind styles can go here */
+  :global(body) {
+    margin: 0;
+    font-family: sans-serif;
+  }
+  main:not(.bg-gray-900) {
     text-align: center;
     padding: 1em;
     margin: 0 auto;
   }
-  h1 {
+  h1:not(.text-orange-500) {
     color: #ff3e00;
-    text-transform: uppercase;
-    font-size: 4em;
-    font-weight: 100;
-  }
-  @media (min-width: 640px) {
-    main {
-      max-width: none;
-    }
   }
 </style>
 `;
@@ -391,10 +392,12 @@ render(() => <App />, document.getElementById('root')${projectConfig.language ==
   writeFile(`src/index.${ext}`, mainFile.trim()); // Note: index.ext, not main.ext
 
   const appFile = `import type { Component } from 'solid-js';
+import { Show } from 'solid-js';
 
 const App: Component = () => {
   const projectName = '${projectConfig.name}';
   const backendExists = ${projectConfig.backend !== 'none'};
+  const useTailwind = ${projectConfig.styling === 'tailwind'};
 
   const testApi = async () => {
     try {
@@ -409,14 +412,16 @@ const App: Component = () => {
   };
 
   return (
-    <div>
-      <h1>Welcome to {projectName}!</h1>
-      <p>Your SolidJS + ${projectConfig.language} + ${projectConfig.styling} app is ready!</p>
-      {backendExists && (
-        <button onClick={testApi} style={{ marginTop: '20px', padding: '10px', cursor: 'pointer' }}>
-          Test Backend Connection
-        </button>
-      )}
+    <div classList={{ "min-h-screen bg-gray-900 text-white flex items-center justify-center": useTailwind }}>
+      <div class="text-center p-4">
+        <h1 class="text-5xl font-bold text-sky-400 mb-4">Welcome to {projectName}!</h1>
+        <p class="text-lg text-gray-300">Your SolidJS + ${projectConfig.language} + ${projectConfig.styling} app is ready!</p>
+        <Show when={backendExists}>
+          <button onClick={testApi} class="mt-8 px-6 py-3 bg-sky-500 text-black font-semibold rounded-lg shadow-md hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-opacity-75 transition-colors duration-300">
+            Test Backend Connection
+          </button>
+        </Show>
+      </div>
     </div>
   );
 };
@@ -437,21 +442,33 @@ ${projectConfig.styling === 'bulma' ? "import 'bulma/css/bulma.min.css';" : ''}
 document.addEventListener('DOMContentLoaded', () => {
   const appDiv = document.getElementById('app');
   if (!appDiv) return;
+  const useTailwind = ${projectConfig.styling === 'tailwind'};
+
+  if (useTailwind) {
+    document.body.className = "bg-gray-900";
+    appDiv.className = "min-h-screen text-white flex flex-col items-center justify-center p-4";
+  }
 
   appDiv.innerHTML = \`
-    <div>
-      <h1>Welcome to ${projectConfig.name}!</h1>
-      <p>Your Vanilla JS (${projectConfig.language}) + ${projectConfig.styling} app is ready!</p>
+    <div class="text-center">
+      <h1 class="\${useTailwind ? 'text-5xl font-bold text-yellow-400 mb-4' : ''}">Welcome to ${projectConfig.name}!</h1>
+      <p class="\${useTailwind ? 'text-lg text-gray-300' : ''}">Your Vanilla JS (${projectConfig.language}) + ${projectConfig.styling} app is ready!</p>
       ${projectConfig.backend !== 'none' ? `
-      <button id="testApiBtn" style="margin-top: 20px; padding: 10px; cursor: pointer;">
+      <button id="testApiBtn" class="\${useTailwind ? 'mt-8 px-6 py-3 bg-yellow-500 text-black font-semibold rounded-lg shadow-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-opacity-75 transition-colors duration-300' : ''}">
         Test Backend Connection
       </button>
       ` : ''}
     </div>
   \`;
+  
+  const testApiBtn = document.getElementById('testApiBtn');
+  if (testApiBtn && !useTailwind) {
+      testApiBtn.style.marginTop = '20px';
+      testApiBtn.style.padding = '10px';
+      testApiBtn.style.cursor = 'pointer';
+  }
 
   if (${projectConfig.backend !== 'none'}) {
-    const testApiBtn = document.getElementById('testApiBtn');
     if (testApiBtn) {
       testApiBtn.addEventListener('click', async () => {
         try {
@@ -480,7 +497,7 @@ const createFrontendFiles = (projectConfig) => {
    if (projectConfig.jsFramework === 'angular') {
     createAngularFiles(projectConfig); // Angular CLI handles its own index.html and main files.
     // Style files for Angular are typically handled by CLI or manual setup for Tailwind.
-    return; 
+    return;
   }
 
 
@@ -492,7 +509,7 @@ const createFrontendFiles = (projectConfig) => {
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" /> 
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${projectConfig.name}</title>
     ${'' /* Bootstrap/Bulma CSS is now imported in JS/TS entry points */}
@@ -534,12 +551,4 @@ const createFrontendFiles = (projectConfig) => {
 
 module.exports = {
   createFrontendFiles,
-  // Individual framework functions could be exported if needed for more granular control elsewhere, but usually not.
-  // createReactFiles,
-  // createVueFiles,
-  // createAngularFiles,
-  // createSvelteFiles,
-  // createSolidFiles,
-  // createVanillaFiles,
-  // createStyleFiles
 };

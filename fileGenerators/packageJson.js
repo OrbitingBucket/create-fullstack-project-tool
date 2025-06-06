@@ -58,7 +58,7 @@ const generatePackageJson = (projectConfig) => {
         devDependencies.parcel = '^2.11.0'; // Updated
         break;
       case 'esbuild':
-        const entryPoint = projectConfig.language === 'typescript' ? 
+        const entryPoint = projectConfig.language === 'typescript' ?
                            (projectConfig.jsFramework === 'react' || projectConfig.jsFramework === 'solid' ? 'src/index.tsx' : 'src/index.ts') :
                            (projectConfig.jsFramework === 'react' || projectConfig.jsFramework === 'solid' ? 'src/index.jsx' : 'src/index.js');
         scripts.dev = `esbuild ${entryPoint} --bundle --servedir=public --outdir=dist --serve=localhost:3000`;
@@ -156,9 +156,15 @@ const generatePackageJson = (projectConfig) => {
     // Styling dependencies
     switch (projectConfig.styling) {
       case 'tailwind':
-        devDependencies.tailwindcss = '^3.4.1'; // Updated
-        devDependencies.postcss = '^8.4.33'; // Updated
-        devDependencies.autoprefixer = '^10.4.17'; // Updated
+        // Using Tailwind v4 alpha dependencies
+        devDependencies.tailwindcss = '^4.0.0-alpha.17';
+        devDependencies.postcss = '^8.4.33';
+        if (projectConfig.bundler === 'vite') {
+          devDependencies['@tailwindcss/vite'] = '^4.0.0-alpha.17';
+        } else {
+          devDependencies['@tailwindcss/postcss'] = '^4.0.0-alpha.17';
+        }
+        // `autoprefixer` is no longer needed as a separate dependency in v4
         break;
       case 'bootstrap':
         dependencies.bootstrap = '^5.3.2';
@@ -253,7 +259,11 @@ const generatePackageJson = (projectConfig) => {
     const serverEntry = projectConfig.language === 'typescript' ? 'server/src/server.ts' : 'server/src/server.js';
     const serverDistEntry = projectConfig.language === 'typescript' ? 'server/dist/server.js' : 'server/src/server.js';
 
-    scripts['dev:server'] = `nodemon ${serverEntry}`;
+    const serverDevCommand = projectConfig.language === 'typescript'
+      ? `nodemon --exec "node --loader ts-node/esm ${serverEntry}"`
+      : `nodemon ${serverEntry}`;
+
+    scripts['dev:server'] = serverDevCommand;
     scripts['build:server'] = projectConfig.language === 'typescript' ? 'tsc -p tsconfig.server.json' : 'echo "No build step needed for JavaScript backend"';
     scripts.start = `node ${serverDistEntry}`;
 
@@ -337,19 +347,21 @@ const generatePackageJson = (projectConfig) => {
     scripts['format:python'] = 'black server/app server/main.py';
   }
 
+  // *** MODIFICATION START ***
   // Concurrently for running both frontend and backend
   if (projectConfig.jsFramework !== 'skip' && projectConfig.backend !== 'none' && projectConfig.jsFramework !== 'angular') {
-    // Angular has its own 'start' script which is 'ng serve'
-    const frontendDevScript = scripts.dev || (projectConfig.bundler === 'vite' ? 'vite' : 'npm run dev:frontend'); // Fallback if scripts.dev isn't set yet
-    const backendDevScript = scripts['dev:server'] || 'npm run dev:server';
-    scripts.dev = `concurrently "${backendDevScript}" "${frontendDevScript}"`;
+    const frontendDevScript = scripts.dev || 'vite'; // Default to vite if not otherwise set
+    const backendDevScript = scripts['dev:server'];
+    // Use single quotes to wrap each command to avoid shell parsing issues with nested quotes
+    scripts.dev = `concurrently '${backendDevScript}' '${frontendDevScript}'`;
     devDependencies.concurrently = '^8.2.2';
   } else if (projectConfig.jsFramework === 'angular' && projectConfig.backend !== 'none') {
     // For Angular with backend
-    const backendDevScript = scripts['dev:server'] || 'npm run dev:server';
-    scripts.dev = `concurrently "${backendDevScript}" "ng serve --open"`; // ng serve usually opens browser
+    const backendDevScript = scripts['dev:server'];
+    scripts.dev = `concurrently '${backendDevScript}' 'ng serve --open'`; // ng serve usually opens browser
     devDependencies.concurrently = '^8.2.2';
   }
+  // *** MODIFICATION END ***
 
 
   // Database dependencies (for Node.js backends)
@@ -377,7 +389,7 @@ const generatePackageJson = (projectConfig) => {
         break;
     }
   }
-  
+
   // Ensure main script is set if only frontend or only backend
   if (projectConfig.jsFramework !== 'skip' && projectConfig.backend === 'none' && !scripts.start) {
     scripts.start = scripts.preview || scripts.dev; // Fallback for frontend-only
@@ -391,9 +403,9 @@ const generatePackageJson = (projectConfig) => {
     version: '0.1.0',
     private: true,
     type: packageType,
-    main: projectConfig.backend !== 'none' && projectConfig.backend !== 'python' && projectConfig.language === 'javascript' ? 
-          'server/src/server.js' : 
-          (projectConfig.backend !== 'none' && projectConfig.backend !== 'python' && projectConfig.language === 'typescript' ? 
+    main: projectConfig.backend !== 'none' && projectConfig.backend !== 'python' && projectConfig.language === 'javascript' ?
+          'server/src/server.js' :
+          (projectConfig.backend !== 'none' && projectConfig.backend !== 'python' && projectConfig.language === 'typescript' ?
           'server/dist/server.js' : undefined),
     scripts,
     dependencies: Object.keys(dependencies).length > 0 ? dependencies : undefined,

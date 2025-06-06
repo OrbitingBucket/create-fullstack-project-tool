@@ -1,0 +1,8 @@
+# Ignore the snapshot script
+/snapshot.sh
+
+# Ignore the entire snapshots directory
+/snapshots/
+
+# Ignore the todo file
+/todo

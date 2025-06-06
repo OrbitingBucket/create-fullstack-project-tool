@@ -135,19 +135,19 @@ ${projectConfig.backend === 'python' ? `- Python Framework: ${projectConfig.pyth
     ${projectConfig.backend === 'python' ? `
 2.  **Setup Python environment (if not already done):**
     \`\`\`bash
-    npm run install:python:venv 
+    npm run install:python:venv
     # Activate venv: source server/venv/bin/activate (Linux/macOS) or server\\venv\\Scripts\\activate (Windows)
     \`\`\`
     Then, ensure Python dependencies are installed if you didn't use the script:
     \`\`\`bash
     # (Activate venv first if needed)
-    pip install -r server/requirements.txt 
+    pip install -r server/requirements.txt
     # For dev dependencies: pip install -r server/requirements-dev.txt
     \`\`\`
 ` : ''}
 3.  **Run the development server:**
     \`\`\`bash
-    npm run dev 
+    npm run dev
     \`\`\`
     (This usually starts both frontend and backend if both are configured. See available scripts below.)
 
@@ -202,13 +202,18 @@ Happy Coding! 🚀
     if (projectConfig.jsFramework === 'vue') vitePlugins.push("vue()");
     if (projectConfig.jsFramework === 'svelte') vitePlugins.push("svelte()");
     if (projectConfig.jsFramework === 'solid') vitePlugins.push("solidPlugin()");
-
+    // *** MODIFICATION START ***
+    if (projectConfig.styling === 'tailwind') {
+        vitePlugins.push("tailwindcss()");
+    }
+    // *** MODIFICATION END ***
 
     const viteConfig = `import { defineConfig } from 'vite';
 ${projectConfig.jsFramework === 'react' ? "import react from '@vitejs/plugin-react';" : ''}
 ${projectConfig.jsFramework === 'vue' ? "import vue from '@vitejs/plugin-vue';" : ''}
 ${projectConfig.jsFramework === 'svelte' ? "import { svelte } from '@sveltejs/vite-plugin-svelte';" : ''}
 ${projectConfig.jsFramework === 'solid' ? "import solidPlugin from 'vite-plugin-solid';" : ''}
+${projectConfig.styling === 'tailwind' ? "import tailwindcss from '@tailwindcss/vite';" : ""}
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -423,10 +428,10 @@ export default {
           "@/*": ["src/*"]
         },
         lib: ['ES2020', 'DOM', 'DOM.Iterable'],
-        jsx: projectConfig.jsFramework === 'react' ? 'react-jsx' : 
-             projectConfig.jsFramework === 'solid' ? 'preserve' : 
+        jsx: projectConfig.jsFramework === 'react' ? 'react-jsx' :
+             projectConfig.jsFramework === 'solid' ? 'preserve' :
              undefined, // Svelte/Vue handle JSX differently or not at all in tsconfig
-        
+
         strict: true,
         esModuleInterop: true,
         skipLibCheck: true,
@@ -445,7 +450,7 @@ export default {
       include: projectConfig.jsFramework !== 'skip' ? ['src'] : [],
       exclude: ['node_modules', 'dist', 'build'],
     };
-    
+
     if (projectConfig.jsFramework === 'angular') {
         // Angular has a very specific tsconfig setup, often multiple files (tsconfig.json, tsconfig.app.json, tsconfig.spec.json)
         // The ng new command will generate these. This is a basic placeholder if not using CLI.
@@ -482,13 +487,14 @@ export default {
         const tsConfigServer = {
             extends: "./tsconfig.json", // Inherit from base
             compilerOptions: {
-                module: "CommonJS", // Node.js typically uses CommonJS
+                module: "NodeNext", // Use modern module format for Node
+                moduleResolution: "NodeNext", // Required with NodeNext module
                 outDir: "./server/dist",
                 rootDir: "./server/src",
                 noEmit: false, // We want to emit JS for the server
-                isolatedModules: false, // Not needed for CJS usually
+                isolatedModules: false, // Not required for this setup
                 // Remove frontend specific options if any were inherited that conflict
-                jsx: undefined, 
+                jsx: undefined,
             },
             include: ["server/src/**/*.ts"],
             exclude: ["node_modules", "dist", "build", "src"] // Exclude frontend src
@@ -504,30 +510,25 @@ export default {
   }
 
 
-  // Create Tailwind config if using Tailwind
+  // *** MODIFICATION START ***
+  // Create Tailwind v4 config files
   if (projectConfig.styling === 'tailwind') {
-    const tailwindConfigContent = `/** @type {import('tailwindcss').Config} */
-export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx,vue,svelte,html}", // Added vue, svelte, html
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-}`;
-    // Tailwind config is usually .js, even in TS projects, for simplicity with PostCSS
-    writeFile('tailwind.config.js', tailwindConfigContent);
+    // For Tailwind v4, we no longer need a default tailwind.config.js.
+    // The configuration is handled by the bundler plugin.
 
-    const postcssConfigContent = `export default {
+    // For non-Vite bundlers, create a modern postcss.config.mjs file.
+    if (projectConfig.bundler !== 'vite') {
+        const postcssConfigContent = `export default {
   plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
+    "@tailwindcss/postcss": {},
   },
 }`;
-    writeFile('postcss.config.js', postcssConfigContent);
+        writeFile('postcss.config.mjs', postcssConfigContent);
+    }
+    // For Vite, the setup is handled directly in vite.config.js (as done above).
   }
+  // *** MODIFICATION END ***
+
 
   // Create a basic .babelrc if not already created by Webpack and if React is used (for other bundlers or no bundler)
   if (projectConfig.jsFramework === 'react' && projectConfig.bundler !== 'webpack') {
